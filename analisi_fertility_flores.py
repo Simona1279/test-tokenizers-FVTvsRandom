@@ -1,42 +1,8 @@
-"""
-Analisi della token fertility su corpus parallelo Flores-200
-==============================================================
-Script per la tesi - Cap. 1, sez. 3 (La tokenizzazione)
-
-Versione "robusta" dell'esperimento sulla fertility: invece di poche
-frasi scritte a mano, usa il corpus Flores-200 (Costa-jussà et al., 2022;
-Meta AI), che contiene ~1000 frasi tradotte in parallelo in oltre 200
-lingue. Questo permette di calcolare una fertility media con deviazione
-standard, molto più solida dal punto di vista statistico.
-
-Nessun training richiesto: solo inferenza di tokenizzatori pre-addestrati.
-
-NOTA IMPORTANTE (rispetto alla versione precedente):
-Il pacchetto "datasets" di HuggingFace ha rimosso il supporto ai
-"dataset script" (come quello usato da Muennighoff/flores200), quindi
-load_dataset(...) su quel repo non funziona più con le versioni recenti
-della libreria. Questa versione bypassa completamente il problema:
-scarica il corpus Flores-200 direttamente dalla fonte originale (Meta AI,
-file .tar.gz pubblico) ed estrae i file di testo a mano. Non serve più
-il pacchetto "datasets", né un account/token HuggingFace.
-
 Requisiti:
     pip install transformers matplotlib pandas certifi
 
 Uso:
     python analisi_fertility_flores.py
-
-Nota: la prima esecuzione scarica il dataset (~200 MB compressi) e i
-tokenizzatori da HuggingFace. Le esecuzioni successive riusano la cache
-locale (cartella flores200_cache/) e non riscaricano nulla.
-
-Nota su macOS: se Python è stato installato da python.org, spesso manca
-la configurazione dei certificati SSL di sistema (errore tipico:
-"CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate").
-Questo script usa esplicitamente i certificati del pacchetto "certifi"
-per evitare il problema, quindi non serve eseguire manualmente
-"Install Certificates.command" (ma è comunque un'opzione valida).
-"""
 
 import ssl
 import tarfile
@@ -70,11 +36,7 @@ def _report_download(blocchi, dimensione_blocco, dimensione_totale):
 
 
 def scarica_ed_estrai_flores200():
-    """
-    Scarica (se non già presente in cache) l'archivio ufficiale di
-    Flores-200 e lo estrae in CACHE_DIR. Idempotente: se i file sono già
-    presenti non rifà nulla.
-    """
+    
     CACHE_DIR.mkdir(exist_ok=True)
 
     if not EXTRACT_DIR.exists():
@@ -96,9 +58,6 @@ def scarica_ed_estrai_flores200():
 # ---------------------------------------------------------------------
 # 1. LINGUE DA CONFRONTARE
 # ---------------------------------------------------------------------
-# Codici Flores-200 (formato: lingua_Sistemadiscrittura).
-# Puoi aggiungere altre lingue: la lista completa dei codici è qui:
-# https://github.com/facebookresearch/flores/blob/main/flores200/README.md
 
 LANGUAGES = {
     "Inglese":    "eng_Latn",
@@ -111,7 +70,7 @@ LANGUAGES = {
 }
 
 # Numero di frasi da usare (max ~1000 disponibili nello split "dev").
-# Con 200 frasi i risultati sono già stabili; aumenta se vuoi più precisione.
+
 N_SENTENCES = 200
 
 TOKENIZERS = {
@@ -122,12 +81,7 @@ TOKENIZERS = {
 
 
 def carica_frasi_parallele():
-    """
-    Legge, per ogni lingua, il file di testo dello split 'dev' di
-    Flores-200 (uno per lingua, una frase per riga) e restituisce un
-    dizionario {lingua: [lista di frasi]}. Le frasi sono allineate per
-    indice: sentences["Italiano"][i] è la traduzione di sentences["Inglese"][i].
-    """
+    
     scarica_ed_estrai_flores200()
 
     frasi = {}
@@ -147,10 +101,6 @@ def carica_frasi_parallele():
 
 
 def calcola_fertility_su_corpus(frasi):
-    """
-    Per ogni tokenizzatore e ogni lingua, calcola la fertility media
-    (token / parola) su tutte le frasi del corpus, con deviazione standard.
-    """
     righe = []
     for tok_name, tok_path in TOKENIZERS.items():
         print(f"Carico il tokenizzatore: {tok_name} ...")
@@ -178,10 +128,6 @@ def calcola_fertility_su_corpus(frasi):
 
 
 def grafico_fertility_con_errore(df):
-    """
-    Grafico a barre con barre di errore (deviazione standard), una serie
-    per tokenizzatore, raggruppate per lingua.
-    """
     lingue = list(LANGUAGES.keys())
     fig, ax = plt.subplots(figsize=(11, 6))
     width = 0.25
