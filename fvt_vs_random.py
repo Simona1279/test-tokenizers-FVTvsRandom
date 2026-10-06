@@ -1,33 +1,8 @@
-"""
-FVT (Fast Vocabulary Transfer) vs inizializzazione random
-============================================================
-Script per la tesi - Cap. 2, sez. 3.1 (Heuristic-based strategies)
-
-Cosa fa:
-Implementa concretamente FVT (Gee et al., 2022) e lo confronta con
-un'inizializzazione random "alla REINIT" (Downey et al., 2023), per
-mostrare empiricamente perché le inizializzazioni euristiche sono
-preferibili a quelle casuali (cfr. Cap.2, sez.3 e sez.3.1).
-
-Nessun training del modello: si manipola solo la matrice di embedding
-già addestrata, con semplice aritmetica (media di vettori, campionamento
-da una distribuzione). Questo è esattamente ciò che fanno FVT e REINIT
-nella letteratura originale: sono strategie "a costo quasi zero".
-
-Metriche calcolate per ogni parola target:
-1. Similarità coseno con i 5 token più vicini nel vocabolario esistente
-   (per vedere se i "vicini" del nuovo embedding hanno senso semantico)
-2. Norma del vettore rispetto alla norma media della matrice di embedding
-   (un embedding "fuori scala" indica un'inizializzazione poco realistica,
-   concetto collegato al "convex hull" di Mundra et al., 2024 citato nel
-   Cap.2 sez.3.3)
-
 Requisiti:
     pip install transformers torch
 
 Uso:
     python fvt_vs_random.py
-"""
 
 import torch
 import torch.nn.functional as F
@@ -36,10 +11,6 @@ from transformers import AutoModel, AutoTokenizer
 # ---------------------------------------------------------------------
 # 1. MODELLO E PAROLE TARGET
 # ---------------------------------------------------------------------
-# Usiamo un modello inglese di piccole dimensioni: le parole italiane
-# scelte NON esistono come singolo token nel suo vocabolario, quindi
-# vengono scomposte in subword (esattamente lo scenario descritto per
-# la vocabulary expansion nel Cap.2, sez.2).
 
 MODEL_NAME = "distilgpt2"  # ~82M parametri, CPU-friendly
 
@@ -51,7 +22,7 @@ PAROLE_TARGET = [
     "formaggio",
 ]
 
-TOP_K = 5  # quanti vicini semantici mostrare per ogni embedding
+TOP_K = 5  
 
 
 def carica_modello():
@@ -63,11 +34,6 @@ def carica_modello():
 
 
 def fvt_init(parola, tokenizer, embedding_matrix):
-    """
-    FVT (Gee et al., 2022): scompone la parola target nelle subword
-    già note al tokenizzatore sorgente e ne calcola la media degli
-    embedding. Questo è l'algoritmo esatto descritto nel Cap.2 sez.3.1.
-    """
     subtoken_ids = tokenizer.encode(parola, add_special_tokens=False)
     subtoken_strs = tokenizer.convert_ids_to_tokens(subtoken_ids)
     sub_embeds = embedding_matrix[subtoken_ids]
@@ -76,11 +42,6 @@ def fvt_init(parola, tokenizer, embedding_matrix):
 
 
 def random_init(embedding_matrix, seed=None):
-    """
-    Inizializzazione random "alla REINIT" semplificata (Downey et al.,
-    2023): si campiona un vettore da una distribuzione normale con media
-    e deviazione standard calcolate sull'intera matrice di embedding.
-    """
     if seed is not None:
         torch.manual_seed(seed)
     media = embedding_matrix.mean(dim=0)
@@ -90,12 +51,6 @@ def random_init(embedding_matrix, seed=None):
 
 
 def top_k_vicini(vettore, embedding_matrix, tokenizer, k=TOP_K):
-    """
-    Trova i k token del vocabolario più simili (cosine similarity) al
-    vettore dato. Serve per valutare intrinsecamente la qualità
-    dell'inizializzazione: vicini semanticamente sensati indicano un
-    embedding "ben posizionato" nello spazio del modello.
-    """
     sims = F.cosine_similarity(vettore.unsqueeze(0), embedding_matrix)
     top_vals, top_ids = sims.topk(k)
     top_tokens = tokenizer.convert_ids_to_tokens(top_ids.tolist())
@@ -157,14 +112,6 @@ def stampa_riepilogo(risultati, norma_media):
     media_fvt = sum(r["fvt_top1_similarity"] for r in risultati) / len(risultati)
     media_rand = sum(r["random_top1_similarity"] for r in risultati) / len(risultati)
     print(f"\nSimilarità media col vicino più prossimo — FVT: {media_fvt:.3f} | Random: {media_rand:.3f}")
-    print(
-        "\nInterpretazione: se la similarità media di FVT è nettamente più alta "
-        "di quella random, significa che FVT produce embedding già 'ancorati' "
-        "a regioni semanticamente plausibili dello spazio, mentre l'inizializzazione "
-        "random è sostanzialmente arbitraria — coerente con quanto riportato in "
-        "Downey et al., 2023 e con il criterio del 'convex hull' di Mundra et al., 2024 "
-        "discusso nel Cap.2, sez.3."
-    )
 
 
 if __name__ == "__main__":
